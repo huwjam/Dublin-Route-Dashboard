@@ -92,7 +92,6 @@
             directionsRenderer.setMap(map);
 
             const origin = "Amgen, Dún Laoghaire, Dublin";
-            // Use the D4 suffix to be explicit
             const destination = "Schoolhouse Hotel, Dublin 4, Dublin";
 
             directionsService.route(
@@ -114,7 +113,6 @@
                         const routesInfo = response.routes.map((route, idx) => {
                             const leg = route.legs[0];
                             const dur = (leg.duration && leg.duration.value) || Infinity;
-                            // duration_in_traffic is only present if drivingOptions.departureTime was provided
                             const durTraffic = (leg.duration_in_traffic && leg.duration_in_traffic.value) || dur;
                             const delaySeconds = durTraffic - dur;
                             if (durTraffic < bestDurationTraffic) {
@@ -132,7 +130,7 @@
                             };
                         });
 
-                        // render directions but then set routeIndex to best
+                        // render directions and switch to the best route index
                         directionsRenderer.setDirections(response);
                         directionsRenderer.setRouteIndex(bestIndex);
 
@@ -148,7 +146,7 @@
                             : ` (no significant delay detected)`;
 
                         document.getElementById("summary").innerHTML =
-                            `<strong>Best route:</strong> ${response.routes[bestIndex].summary || "Suggested route"} — Estimated travel time: <strong>${best.durationInTrafficText || best.durationText}</strong> (${response.routes[bestIndex].legs[0].distance.text})${delayMessage}`;
+                            `<strong>Best route:</strong> ${response.routes[bestIndex].summary || "Suggested route"} — Estimated travel time: <strong>${best.durationInTrafficText || best.durationText}</strong>${delayMessage}`;
 
                         // Show alternatives summary with delays so user can compare
                         const altContainer = document.getElementById("alternatives");
@@ -169,7 +167,7 @@
                         });
                         altContainer.appendChild(list);
                     } else {
-                        alert("Directions request failed due to " + status);
+                        console.error("Directions request failed:", status);
                         document.getElementById("summary").innerText = "Unable to load route: " + status;
                     }
                 }
@@ -183,15 +181,23 @@
                 }
 
                 // Determine color based on delay severity
-                const delaySeconds = routeInfo.delaySeconds;
+                const delaySeconds = routeInfo.delaySeconds || 0;
                 const delayMinutes = delaySeconds / 60;
                 const delayPercent = routeInfo.durationValue > 0 ? (delaySeconds / routeInfo.durationValue) * 100 : 0;
                 let color = "green";
                 if (delayMinutes >= 10 || delayPercent > 20) color = "red";
                 else if (delayMinutes >= 5 || delayPercent > 10) color = "orange";
 
-                // Use the route's overview_path (array of LatLng) to draw a polyline
-                const path = route.overview_path || decodeOverviewPolyline(route.overview_polyline && route.overview_polyline.points);
+                // Use the route's overview_path (array of LatLng) to draw a polyline; fallback to decoding encoded polyline
+                const rawPath = route.overview_path || decodeOverviewPolyline(route.overview_polyline && route.overview_polyline.points);
+                // Normalize path to LatLngLiteral objects {lat:..., lng:...}
+                const path = rawPath.map(p => {
+                    if (typeof p.lat === 'function' && typeof p.lng === 'function') {
+                        return { lat: p.lat(), lng: p.lng() };
+                    }
+                    return p;
+                });
+
                 customPolyline = new google.maps.Polyline({
                     path,
                     strokeColor: color,
@@ -208,261 +214,9 @@
 
                 // Click listener to show route delay info
                 customPolyline.addListener('click', () => {
+                    const percentText = routeInfo.durationValue > 0 ? `${Math.round((routeInfo.delaySeconds / routeInfo.durationValue) * 100)}%` : '0%';
                     const infowindow = new google.maps.InfoWindow({
-                        content: `<div style="font-size:13px"><strong>Selected route</strong><br/>Estimated: ${routeInfo.durationInTrafficText || routeInfo.durationText}<br/>Delay: ${Math.round(delaySeconds/60)} min</div>`,
-                        position: path[Math.floor(path.length/2)]
-                    });
-                    infowindow.open(mapInstance);
-                    setTimeout(() => infowindow.close(), 6000);
-                });
-            }
-
-            // Fallback polyline decoder (if needed)
-            function decodeOverviewPolyline(encoded) {
-                if (!encoded) return [];
-                // polyline decode adapted from Google polyline algorithm
-                const points = [];
-                let index = 0, lat = 0, lng = 0;
-                while (index < encoded.length) {
-                    let b, shift = 0, result = 0;
-                    do {
-                        b = encoded.charCodeAt(index++) - 63;
-                        result |= (b & 0x1f) << shift;
-                        shift += 5;
-                    } while (b >= 0x20);
-                    const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
-                    lat += dlat;
-                    shift = 0;
-                    result = 0;
-                    do {
-                        b = encoded.charCodeAt(index++) - 63;
-                        result |= (b & 0x1f) << shift;
-                        shift += 5;
-                    } while (b >= 0x20);
-                    const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
-                    lng += dlng;
-                    points.push({lat: lat / 1e5, lng: lng / 1e5});
-                }
-                return points;
-            }
-        }
-    </script>
-
-    <!-- Replace the API key below with your own key if needed -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDiGpn-bIo5_fBy9geLz4QdEP_r1ORtWs8&callback=initMap"></script>
-</body>
-</html><!DOCTYPE html>
-<html>
-<head>
-    <title>Dublin Route Traffic Map</title>
-    <meta name="viewport" content="initial-scale=1.0">
-    <meta charset="utf-8">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-        }
-        #map {
-            height: 70vh;
-            width: 100%;
-        }
-        #directions-panel {
-            padding: 20px;
-            background: #f9f9f9;
-            border-top: 1px solid #ccc;
-            max-height: 30vh;
-            overflow: auto;
-        }
-        #summary {
-            padding: 10px;
-            background: #e0f7fa;
-            border-bottom: 1px solid #ccc;
-        }
-        #alternatives {
-            padding: 10px;
-            background: #fff3e0;
-            border-top: 1px solid #ccc;
-        }
-        .legend {
-            position: absolute;
-            left: 12px;
-            top: 12px;
-            background: rgba(255,255,255,0.9);
-            padding: 8px;
-            font-size: 13px;
-            border-radius: 4px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-        }
-        .legend .item {
-            display:flex;
-            align-items:center;
-            margin: 2px 0;
-        }
-        .legend .swatch {
-            width: 18px;
-            height: 8px;
-            margin-right: 8px;
-            border-radius: 2px;
-            display:inline-block;
-        }
-    </style>
-</head>
-<body>
-    <h2 style="text-align:center;">Traffic Map: Amgen (Dún Laoghaire) → Schoolhouse Hotel (D4)</h2>
-    <div id="summary">Loading best route...</div>
-    <div id="map"></div>
-    <div id="alternatives"></div>
-    <div id="directions-panel"></div>
-
-    <div class="legend">
-        <div><strong>Route delay legend</strong></div>
-        <div class="item"><span class="swatch" style="background:green"></span> Minimal delay</div>
-        <div class="item"><span class="swatch" style="background:orange"></span> Moderate delay</div>
-        <div class="item"><span class="swatch" style="background:red"></span> Severe delay</div>
-        <div style="margin-top:6px; font-size:12px; color:#333;">
-            Note: the Traffic layer (map) shows live congestion. Route delay is computed from duration vs duration_in_traffic.
-        </div>
-    </div>
-
-    <script>
-        function initMap() {
-            const map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 12,
-                center: { lat: 53.319, lng: -6.218 },
-            });
-
-            // show the visual traffic overlay
-            const trafficLayer = new google.maps.TrafficLayer();
-            trafficLayer.setMap(map);
-
-            const directionsService = new google.maps.DirectionsService();
-            // We'll suppress the default polyline drawing so we can draw a colored polyline based on delay
-            const directionsRenderer = new google.maps.DirectionsRenderer({
-                panel: document.getElementById("directions-panel"),
-                suppressPolylines: true,
-                draggable: false
-            });
-            directionsRenderer.setMap(map);
-
-            const origin = "Amgen, Dún Laoghaire, Dublin";
-            // Use the D4 suffix to be explicit
-            const destination = "Schoolhouse Hotel, Dublin 4, Dublin";
-
-            directionsService.route(
-                {
-                    origin,
-                    destination,
-                    travelMode: google.maps.TravelMode.DRIVING,
-                    drivingOptions: {
-                        departureTime: new Date(),
-                        trafficModel: 'best_guess'
-                    },
-                    provideRouteAlternatives: true
-                },
-                (response, status) => {
-                    if (status === "OK") {
-                        // Choose the best route by shortest duration_in_traffic (fallback to duration)
-                        let bestIndex = 0;
-                        let bestDurationTraffic = Number.POSITIVE_INFINITY;
-                        const routesInfo = response.routes.map((route, idx) => {
-                            const leg = route.legs[0];
-                            const dur = (leg.duration && leg.duration.value) || Infinity;
-                            // duration_in_traffic is only present if drivingOptions.departureTime was provided
-                            const durTraffic = (leg.duration_in_traffic && leg.duration_in_traffic.value) || dur;
-                            const delaySeconds = durTraffic - dur;
-                            if (durTraffic < bestDurationTraffic) {
-                                bestDurationTraffic = durTraffic;
-                                bestIndex = idx;
-                            }
-                            return {
-                                index: idx,
-                                summary: route.summary || `Route ${idx+1}`,
-                                durationText: leg.duration ? leg.duration.text : "N/A",
-                                durationValue: dur,
-                                durationInTrafficText: (leg.duration_in_traffic && leg.duration_in_traffic.text) || null,
-                                durationInTrafficValue: durTraffic,
-                                delaySeconds
-                            };
-                        });
-
-                        // render directions but then set routeIndex to best
-                        directionsRenderer.setDirections(response);
-                        directionsRenderer.setRouteIndex(bestIndex);
-
-                        // hide the renderer's default polyline and draw our own with color based on delay
-                        drawColoredRoute(response.routes[bestIndex], map, routesInfo[bestIndex]);
-
-                        // Update summary with delay info
-                        const best = routesInfo[bestIndex];
-                        const delayMins = Math.round(best.delaySeconds / 60);
-                        const delayPercent = best.durationValue > 0 ? Math.round((best.delaySeconds / best.durationValue) * 100) : 0;
-                        const delayMessage = best.delaySeconds > 0
-                            ? ` (approx. ${delayMins} min delay — ${delayPercent}% slower than free-flow)`
-                            : ` (no significant delay detected)`;
-
-                        document.getElementById("summary").innerHTML =
-                            `<strong>Best route:</strong> ${response.routes[bestIndex].summary || "Suggested route"} — Estimated travel time: <strong>${best.durationInTrafficText || best.durationText}</strong> (${response.routes[bestIndex].legs[0].distance.text})${delayMessage}`;
-
-                        // Show alternatives summary with delays so user can compare
-                        const altContainer = document.getElementById("alternatives");
-                        altContainer.innerHTML = "<strong>Route alternatives</strong>";
-                        const list = document.createElement("ul");
-                        list.style.margin = "6px 0 0 18px";
-                        routesInfo.forEach(r => {
-                            const li = document.createElement("li");
-                            const dm = r.delaySeconds > 0 ? `+${Math.round(r.delaySeconds/60)} min delay` : "no significant delay";
-                            const trafficText = r.durationInTrafficText ? ` — ${r.durationInTrafficText}` : "";
-                            li.innerHTML = `${r.summary} : ${r.durationText}${trafficText} (${dm})`;
-                            // make best route bold
-                            if (r.index === bestIndex) {
-                                li.style.fontWeight = "700";
-                                li.style.marginBottom = "6px";
-                            }
-                            list.appendChild(li);
-                        });
-                        altContainer.appendChild(list);
-                    } else {
-                        alert("Directions request failed due to " + status);
-                        document.getElementById("summary").innerText = "Unable to load route: " + status;
-                    }
-                }
-            );
-
-            let customPolyline = null;
-            function drawColoredRoute(route, mapInstance, routeInfo) {
-                // Remove previous polyline if any
-                if (customPolyline) {
-                    customPolyline.setMap(null);
-                }
-
-                // Determine color based on delay severity
-                const delaySeconds = routeInfo.delaySeconds;
-                const delayMinutes = delaySeconds / 60;
-                const delayPercent = routeInfo.durationValue > 0 ? (delaySeconds / routeInfo.durationValue) * 100 : 0;
-                let color = "green";
-                if (delayMinutes >= 10 || delayPercent > 20) color = "red";
-                else if (delayMinutes >= 5 || delayPercent > 10) color = "orange";
-
-                // Use the route's overview_path (array of LatLng) to draw a polyline
-                const path = route.overview_path || decodeOverviewPolyline(route.overview_polyline && route.overview_polyline.points);
-                customPolyline = new google.maps.Polyline({
-                    path,
-                    strokeColor: color,
-                    strokeOpacity: 0.9,
-                    strokeWeight: 6,
-                    zIndex: 5,
-                    map: mapInstance
-                });
-
-                // Fit map bounds to route
-                const bounds = new google.maps.LatLngBounds();
-                path.forEach(p => bounds.extend(p));
-                mapInstance.fitBounds(bounds);
-
-                // Click listener to show route delay info
-                customPolyline.addListener('click', () => {
-                    const infowindow = new google.maps.InfoWindow({
-                        content: `<div style="font-size:13px"><strong>Selected route</strong><br/>Estimated: ${routeInfo.durationInTrafficText || routeInfo.durationText}<br/>Delay: ${Math.round(delaySeconds/60)} min</div>`,
+                        content: `<div style="font-size:13px"><strong>Selected route</strong><br/>Estimated: ${routeInfo.durationInTrafficText || routeInfo.durationText}<br/>Delay: ${Math.round(routeInfo.delaySeconds/60)} min (${percentText})</div>`,
                         position: path[Math.floor(path.length/2)]
                     });
                     infowindow.open(mapInstance);
