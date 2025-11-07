@@ -43,8 +43,7 @@
 
             const directionsService = new google.maps.DirectionsService();
             const directionsRenderer = new google.maps.DirectionsRenderer({
-                panel: document.getElementById("directions-panel"),
-                provideRouteAlternatives: true
+                panel: document.getElementById("directions-panel")
             });
             directionsRenderer.setMap(map);
 
@@ -74,7 +73,6 @@
         }
     </script>
 
-    https://maps.googleapis.com/maps/api/js?key=AIzaSyDiGpn-bIo5_fBy9geLz4QdEP_r1ORtWs8&callback=initMap
-    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDiGpn-bIo5_fBy9geLz4QdEP_r1ORtWs8&callback=initMap"></script>
 </body>
 </html>
