@@ -1,0 +1,54 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dublin Route Traffic Map</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <style>
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h2 style='text-align:center;'>Traffic Map: Amgen to Schoolhouse Hotel</h2>
+    <div id="map"></div>
+
+    <script>
+        function initMap() {
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 12,
+                center: { lat: 53.319, lng: -6.218 }, // Centered between Amgen and Schoolhouse Hotel
+            });
+
+            const trafficLayer = new google.maps.TrafficLayer();
+            trafficLayer.setMap(map);
+
+            const directionsService = new google.maps.DirectionsService();
+            const directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
+
+            directionsService.route(
+                {
+                    origin: "Amgen, Dún Laoghaire, Dublin",
+                    destination: "Schoolhouse Hotel, Dublin",
+                    travelMode: google.maps.TravelMode.DRIVING,
+                },
+                (response, status) => {
+                    if (status === "OK") {
+                        directionsRenderer.setDirections(response);
+                    } else {
+                        alert("Directions request failed due to " + status);
+                    }
+                }
+            );
+        }
+    </script>
+
+    <script async
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDiGpn-bIo5_fBy9geLz4QdEP_r1ORtWs8&callback=initMap">
+    </script>
+</body>
+</html>
