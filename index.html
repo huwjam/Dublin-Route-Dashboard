@@ -25,42 +25,52 @@
     <div id="map"></div>
     <div id="directions-panel"></div>
 
-    <script>
-        function initMap() {
-            const map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 12,
-                center: { lat: 53.319, lng: -6.218 },
-            });
+   <script>
+    function initMap() {
+        const map = new google.maps.Map(document.getElementById("map"), {
+            zoom: 12,
+            center: { lat: 53.319, lng: -6.218 },
+        });
 
-            const trafficLayer = new google.maps.TrafficLayer();
-            trafficLayer.setMap(map);
+        const trafficLayer = new google.maps.TrafficLayer();
+        trafficLayer.setMap(map);
 
-            const directionsService = new google.maps.DirectionsService();
-            const directionsRenderer = new google.maps.DirectionsRenderer({
-                panel: document.getElementById("directions-panel")
-            });
-            directionsRenderer.setMap(map);
+        const directionsService = new google.maps.DirectionsService();
+        const directionsRenderer = new google.maps.DirectionsRenderer({
+            panel: document.getElementById("directions-panel")
+        });
+        directionsRenderer.setMap(map);
 
-            directionsService.route(
-                {
-                    origin: "Amgen, Dún Laoghaire, Dublin",
-                    destination: "Schoolhouse Hotel, Dublin",
-                    travelMode: google.maps.TravelMode.DRIVING,
-                    drivingOptions: {
-                        departureTime: new Date(),
-                        trafficModel: 'best_guess'
-                    }
-                },
-                (response, status) => {
-                    if (status === "OK") {
-                        directionsRenderer.setDirections(response);
-                    } else {
-                        alert("Directions request failed due to " + status);
-                    }
+        directionsService.route(
+            {
+                origin: "Amgen, Dún Laoghaire, Dublin",
+                destination: "Schoolhouse Hotel, Dublin",
+                travelMode: google.maps.TravelMode.DRIVING,
+                drivingOptions: {
+                    departureTime: new Date(),
+                    trafficModel: 'best_guess'
                 }
-            );
-        }
-    </script>
+            },
+            (response, status) => {
+                if (status === "OK") {
+                    directionsRenderer.setDirections(response);
+
+                    // Extract and display travel time and distance
+                    const leg = response.routes[0].legs[0];
+                    const summary = `Estimated travel time: <strong>${leg.duration.text}</strong> (${leg.distance.text})`;
+                    const summaryDiv = document.createElement("div");
+                    summaryDiv.innerHTML = summary;
+                    summaryDiv.style.padding = "10px";
+                    summaryDiv.style.background = "#e0f7fa";
+                    summaryDiv.style.borderBottom = "1px solid #ccc";
+                    document.body.insertBefore(summaryDiv, document.getElementById("map"));
+                } else {
+                    alert("Directions request failed due to " + status);
+                }
+            }
+        );
+    }
+</script>
 
     https://maps.googleapis.com/maps/api/js?key=AIzaSyDiGpn-bIo5_fBy9geLz4QdEP_r1ORtWs8&callback=initMap
     </script>
