@@ -34,11 +34,15 @@
             position: absolute;
             right: 12px;
             top: 12px;
-            background: rgba(255,255,255,0.9);
+            background: rgba(255,255,255,0.95);
             padding: 8px;
             font-size: 13px;
             border-radius: 4px;
             box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+            cursor: move;
+            user-select: none;
+            touch-action: none;
+            z-index: 1000;
         }
         .legend .item {
             display:flex;
@@ -66,7 +70,7 @@
     <div id="alternatives"></div>
     <div id="directions-panel"></div>
 
-    <div class="legend">
+    <div class="legend" id="legend">
         <div><strong>Route delay legend</strong></div>
         <div class="item"><span class="swatch" style="background:green"></span> Minimal delay</div>
         <div class="item"><span class="swatch" style="background:orange"></span> Moderate delay</div>
@@ -179,7 +183,7 @@
                     routesInfo.forEach(r => {
                         const li = document.createElement('li');
                         const dm = r.delaySeconds > 0 ? `+${Math.round(r.delaySeconds/60)} min delay` : 'no significant delay';
-                        const trafficText = r.durationInTrafficText ? ` — ${r.durationInTrafficText}` : '';
+                        const trafficText = r.durationInTrafficText ? ` — ${r.durationInTrafficText}` : ''; 
                         li.innerHTML = `${r.summary} : ${r.durationText}${trafficText} (${dm})`;
                         if (r.index === bestIndex) {
                             li.style.fontWeight = '700';
@@ -197,6 +201,7 @@
 
                 if (customPolyline) {
                     customPolyline.setMap(null);
+                    customPolyline = null;
                 }
 
                 const delaySeconds = routeInfo.delaySeconds || 0;
@@ -221,7 +226,7 @@
                 customPolyline = new google.maps.Polyline({
                     path,
                     strokeColor: color,
-                    strokeOpacity: 0.9,
+                    strokeOpacity: 0.95,
                     strokeWeight: 6,
                     zIndex: 5,
                     map: mapInstance
@@ -268,6 +273,65 @@
                 }
                 return points;
             }
+
+            // Make the legend draggable (mouse + touch)
+            (function makeLegendDraggable() {
+                const legend = document.getElementById('legend');
+                let isDragging = false;
+                let startX = 0, startY = 0, origX = 0, origY = 0;
+
+                legend.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    const rect = legend.getBoundingClientRect();
+                    origX = rect.left;
+                    origY = rect.top;
+                    document.body.style.userSelect = 'none';
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    legend.style.left = (origX + dx) + 'px';
+                    legend.style.top = (origY + dy) + 'px';
+                    legend.style.right = 'auto';
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        document.body.style.userSelect = '';
+                    }
+                });
+
+                // Touch support
+                legend.addEventListener('touchstart', (e) => {
+                    const t = e.touches[0];
+                    isDragging = true;
+                    startX = t.clientX;
+                    startY = t.clientY;
+                    const rect = legend.getBoundingClientRect();
+                    origX = rect.left;
+                    origY = rect.top;
+                }, { passive: true });
+
+                document.addEventListener('touchmove', (e) => {
+                    if (!isDragging) return;
+                    const t = e.touches[0];
+                    const dx = t.clientX - startX;
+                    const dy = t.clientY - startY;
+                    legend.style.left = (origX + dx) + 'px';
+                    legend.style.top = (origY + dy) + 'px';
+                    legend.style.right = 'auto';
+                }, { passive: true });
+
+                document.addEventListener('touchend', () => {
+                    isDragging = false;
+                });
+
+            })();
         }
     </script>
 
